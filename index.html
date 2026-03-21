@@ -1068,131 +1068,47 @@ function getScoreColor(score) {
   return '#ef4444';
 }
 
-// ===================== GAUGE SVG — IDÊNTICO À REFERÊNCIA =====================
 function buildGaugeSVG(score) {
-  const label = getScoreLabel(score);
-  const color = getScoreColor(score);
-
-  // Gauge: arco de 270°, de -225° (score=0) a +45° (score=100)
-  const cx = 160, cy = 150, R = 108;
-
-  function polar(angleDeg, radius) {
-    const rad = (angleDeg * Math.PI) / 180;
-    return [cx + radius * Math.cos(rad), cy + radius * Math.sin(rad)];
+  const s = Math.max(0, Math.min(100, score));
+  const rotation = -180 + (s / 100) * 180;
+  const color = s < 25 ? '#ef4444' : s < 50 ? '#f97316' : s < 75 ? '#eab308' : s < 90 ? '#84cc16' : '#22c55e';
+  let ticks = '';
+  for (let i = 0; i <= 10; i++) {
+    const angle = 180 - (i / 10) * 180;
+    const rad = angle * Math.PI / 180;
+    const cx = 180, cy = 180, r = 150;
+    const x1 = cx + (r-27) * Math.cos(rad), y1 = cy - (r-27) * Math.sin(rad);
+    const x2 = cx + (r-17) * Math.cos(rad), y2 = cy - (r-17) * Math.sin(rad);
+    const lx = cx + (r-47) * Math.cos(rad), ly = cy - (r-47) * Math.sin(rad);
+    ticks += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>`;
+    ticks += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" font-size="12" fill="rgba(255,255,255,0.6)" text-anchor="middle" dominant-baseline="middle">${i*10}</text>`;
   }
-
-  function scoreToAngle(s) { return -225 + (s / 100) * 270; }
-
-  function arcPath(a1, a2, r) {
-    const [x1,y1] = polar(a1, r);
-    const [x2,y2] = polar(a2, r);
-    const large = Math.abs(a2 - a1) > 180 ? 1 : 0;
-    return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
-  }
-
-  // Zonas de cor
-  const zones = [
-    { from:0,  to:30,  c1:'#ef4444', c2:'#f97316', id:'gz1' },
-    { from:30, to:59,  c1:'#f97316', c2:'#f5c518', id:'gz2' },
-    { from:59, to:79,  c1:'#f5c518', c2:'#a8d462', id:'gz3' },
-    { from:79, to:100, c1:'#7bc95e', c2:'#22c55e', id:'gz4' },
-  ];
-
-  // Gradientes usando coordenadas reais dos extremos do arco
-  const defs = zones.map(z => {
-    const [x1,y1] = polar(scoreToAngle(z.from), R);
-    const [x2,y2] = polar(scoreToAngle(z.to), R);
-    return `<linearGradient id="${z.id}" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="${z.c1}"/>
-      <stop offset="100%" stop-color="${z.c2}"/>
-    </linearGradient>`;
-  }).join('');
-
-  // Arcos coloridos (stroke largo = visual de área preenchida)
-  const SW = 28; // stroke-width
-  const arcs = zones.map(z =>
-    `<path d="${arcPath(scoreToAngle(z.from), scoreToAngle(z.to), R)}" fill="none" stroke="url(#${z.id})" stroke-width="${SW}" stroke-linecap="butt"/>`
-  ).join('');
-
-  // Ticks (marcações brancas sobre o arco) — a cada 10 pontos
-  const tickVals = [0,10,20,30,40,50,60,70,80,90,100];
-  const ticks = tickVals.map(s => {
-    const a = scoreToAngle(s);
-    const [ox,oy] = polar(a, R + SW/2 - 1); // borda externa
-    const [ix,iy] = polar(a, R - SW/2 + 5); // borda interna
-    const [tx,ty] = polar(a, R - SW/2 - 10); // posição do número
-    return `
-      <line x1="${ox.toFixed(1)}" y1="${oy.toFixed(1)}" x2="${ix.toFixed(1)}" y2="${iy.toFixed(1)}" stroke="rgba(0,0,0,0.35)" stroke-width="1.5"/>
-      <text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" text-anchor="middle" dominant-baseline="middle"
-        fill="#9ca3af" font-size="8.5" font-family="Inter,sans-serif">${s}</text>
-    `;
-  }).join('');
-
-  // Labels rotacionados dentro de cada zona (como na imagem de referência)
-  function zoneLabel(text, scoreMid, fillColor) {
-    const a = scoreToAngle(scoreMid);
-    const [lx, ly] = polar(a, R);
-    const rot = a + 90; // tangente ao arco = perpendicular ao raio
-    return `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}"
-      text-anchor="middle" dominant-baseline="middle"
-      fill="${fillColor}" font-size="10.5" font-weight="800" font-family="Inter,sans-serif"
-      transform="rotate(${rot.toFixed(1)}, ${lx.toFixed(1)}, ${ly.toFixed(1)})"
-      letter-spacing="0.3">${text}</text>`;
-  }
-
-  const zoneLabels = [
-    zoneLabel('CRÍTICO',   14,  '#fff'),
-    zoneLabel('FRACO',     44,  '#fff'),
-    zoneLabel('BOM',       69,  '#fff'),
-    zoneLabel('EXCELENTE', 89,  '#fff'),
-  ].join('');
-
-  // Ponteiro — linha fina do centro ao arco
-  const needleAngle = scoreToAngle(score);
-  const [nx, ny] = polar(needleAngle, R - SW/2 + 2);
-
-  // Score badge (retângulo arredondado laranja/colorido com número)
-  const badgeY = cy + 28;
-  const badgeBg = color;
-
-  return `<svg viewBox="0 0 320 215" style="max-width:320px;width:100%;" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    ${defs}
-    <filter id="nshadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.5"/>
-    </filter>
-  </defs>
-
-  <!-- Arcos de cor das zonas -->
-  ${arcs}
-
-  <!-- Marcações e números -->
-  ${ticks}
-
-  <!-- Labels das zonas rotacionados -->
-  ${zoneLabels}
-
-  <!-- Ponteiro fino -->
-  <line x1="${cx}" y1="${cy}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}"
-    stroke="#111827" stroke-width="3" stroke-linecap="round"
-    filter="url(#nshadow)"/>
-
-  <!-- Base do ponteiro -->
-  <circle cx="${cx}" cy="${cy}" r="12" fill="#2d3748"/>
-  <circle cx="${cx}" cy="${cy}" r="8"  fill="#9ca3af"/>
-  <circle cx="${cx}" cy="${cy}" r="4"  fill="#e5e7eb"/>
-
-  <!-- Badge score -->
-  <rect x="${cx-33}" y="${badgeY}" width="66" height="30" rx="10" fill="${badgeBg}"/>
-  <text x="${cx}" y="${badgeY+19}" text-anchor="middle" fill="white"
-    font-size="20" font-weight="800" font-family="Inter,sans-serif">${score}</text>
-
-  <!-- Texto do label abaixo -->
-  <text x="${cx}" y="${badgeY+48}" text-anchor="middle" fill="${badgeBg}"
-    font-size="14" font-weight="800" font-family="Inter,sans-serif"
-    letter-spacing="1.5">${label.toUpperCase()}</text>
-</svg>`;
-}
+  return `<svg viewBox="0 0 360 245" style="max-width:320px;width:100%;" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="arcGradient" x1="0%" y1="50%" x2="100%" y2="50%">
+        <stop offset="0%" stop-color="#ef4444"/>
+        <stop offset="25%" stop-color="#f97316"/>
+        <stop offset="50%" stop-color="#eab308"/>
+        <stop offset="75%" stop-color="#84cc16"/>
+        <stop offset="100%" stop-color="#22c55e"/>
+      </linearGradient>
+    </defs>
+    <path d="M 30 180 A 150 150 0 0 1 330 180" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="24" stroke-linecap="round"/>
+    <path d="M 30 180 A 150 150 0 0 1 330 180" fill="none" stroke="url(#arcGradient)" stroke-width="24" stroke-linecap="round"/>
+    <text x="42" y="145" font-size="10" font-weight="700" fill="#ef4444" text-anchor="middle">CRÍTICO</text>
+    <text x="108" y="62" font-size="10" font-weight="700" fill="#f97316" text-anchor="middle">FRACO</text>
+    <text x="222" y="62" font-size="10" font-weight="700" fill="#84cc16" text-anchor="middle">BOM</text>
+    <text x="310" y="145" font-size="10" font-weight="700" fill="#22c55e" text-anchor="middle">EXCELENTE</text>
+    ${ticks}
+    <g transform="rotate(${rotation}, 180, 180)">
+      <line x1="180" y1="180" x2="180" y2="52" stroke="white" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="180" cy="180" r="10" fill="#1a1a24" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
+      <circle cx="180" cy="180" r="5" fill="white"/>
+    </g>
+    <text x="180" y="218" text-anchor="middle" font-size="44" font-weight="700" fill="${color}" font-family="Inter,sans-serif">${Math.round(s)}</text>
+    <text x="180" y="236" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.5)" font-family="Inter,sans-serif" letter-spacing="2">SCORE</text>
+  </svg>`;
+}}
 
 // ===================== RENDER RESULT =====================
 function renderResult(a) {
