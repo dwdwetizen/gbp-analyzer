@@ -1,4 +1,4 @@
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   const GOOGLE_KEY = process.env.GOOGLE_API_KEY;
 
   res.setHeader('Access-Control-Allow-Origin', '*');
